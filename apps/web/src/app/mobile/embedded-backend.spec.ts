@@ -6,7 +6,8 @@ import {
     toTransportError,
 } from './native-http';
 import { installEmbeddedFetch } from './mobile-runtime';
-import { detectNativeShell } from './native-shell';
+import { capacitorPlugins, detectNativeShell } from './native-shell';
+import { createNativeHttp } from './native-http';
 
 const M3U = [
     '#EXTM3U',
@@ -207,6 +208,51 @@ describe('native shell helpers', () => {
         expect(
             detectNativeShell({ navigator: { userAgent: 'Mozilla/5.0' } })
         ).toBeNull();
+    });
+
+    it('uses the bridge primitives when Capacitor.Plugins is empty (no core JS)', async () => {
+        // Regression: on device, Plugins is {} without @capacitor/core, which
+        // made provider requests fall back to fetch and hit CORS.
+        const nativePromise = jest.fn(async () => ({
+            status: 200,
+            data: '#EXTM3U',
+        }));
+        const addListener = jest.fn();
+        const win = {
+            Capacitor: {
+                isNativePlatform: () => true,
+                Plugins: {},
+                nativePromise,
+                addListener,
+            },
+        };
+        const plugins = capacitorPlugins(win);
+        const fetchImpl = jest.fn();
+        const http = createNativeHttp(plugins, fetchImpl as unknown as typeof fetch);
+
+        const response = await http({
+            url: 'http://panel.test/get.php',
+            headers: { Cookie: 'mac=00' },
+            timeoutMs: 1000,
+        });
+
+        expect(response.data).toBe('#EXTM3U');
+        expect(fetchImpl).not.toHaveBeenCalled();
+        expect(nativePromise).toHaveBeenCalledWith(
+            'CapacitorHttp',
+            'request',
+            expect.objectContaining({
+                url: 'http://panel.test/get.php',
+                headers: { Cookie: 'mac=00' },
+            })
+        );
+
+        plugins?.App?.addListener('backButton', () => undefined);
+        expect(addListener).toHaveBeenCalledWith(
+            'App',
+            'backButton',
+            expect.any(Function)
+        );
     });
 
     it('routes fetch calls for the embedded backend and passes others through', async () => {

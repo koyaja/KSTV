@@ -25,10 +25,25 @@ export interface CapacitorPluginsLike {
     };
 }
 
+/**
+ * Primitives injected by Capacitor's `native-bridge.js` itself. The web
+ * bundle does not ship `@capacitor/core`, so `Capacitor.Plugins` stays empty
+ * (core's `registerPlugin` fills it); these always exist in the native app.
+ */
 export interface CapacitorLike {
     isNativePlatform?(): boolean;
     getPlatform?(): string;
     readonly Plugins?: CapacitorPluginsLike;
+    nativePromise?(
+        pluginName: string,
+        methodName: string,
+        options?: Record<string, unknown>
+    ): Promise<unknown>;
+    addListener?(
+        pluginName: string,
+        eventName: string,
+        callback: (event: unknown) => void
+    ): unknown;
 }
 
 export interface NativeShellWindow {
@@ -80,8 +95,53 @@ export function isTvDevice(
     return !!win?.matchMedia?.('(pointer: none)').matches;
 }
 
+/**
+ * The native plugins KSTV uses, from `Capacitor.Plugins` when core JS
+ * registered them, otherwise built on the bridge's own primitives.
+ */
 export function capacitorPlugins(
     win: NativeShellWindow | undefined = shellWindow()
 ): CapacitorPluginsLike | undefined {
-    return win?.Capacitor?.Plugins;
+    const cap = win?.Capacitor;
+    if (!cap) {
+        return undefined;
+    }
+    const registered = cap.Plugins ?? {};
+    const nativePromise = cap.nativePromise?.bind(cap);
+    const addListener = cap.addListener?.bind(cap);
+    return {
+        CapacitorHttp:
+            registered.CapacitorHttp ??
+            (nativePromise
+                ? {
+                      request: (options) =>
+                          nativePromise(
+                              'CapacitorHttp',
+                              'request',
+                              options
+                          ) as Promise<{
+                              status: number;
+                              headers?: Record<string, string>;
+                              data: unknown;
+                          }>,
+                  }
+                : undefined),
+        App:
+            registered.App ??
+            (nativePromise && addListener
+                ? {
+                      addListener: (event, listener) =>
+                          addListener('App', event, (payload) =>
+                              listener(
+                                  (payload ?? { canGoBack: false }) as {
+                                      canGoBack: boolean;
+                                  }
+                              )
+                          ),
+                      exitApp: async () => {
+                          await nativePromise('App', 'exitApp', {});
+                      },
+                  }
+                : undefined),
+    };
 }

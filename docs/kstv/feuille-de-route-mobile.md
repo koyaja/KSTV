@@ -45,7 +45,7 @@ Légende : ✅ fonctionne en v0.1 · 🟡 partiel / à vérifier sur appareil ·
 | Mise en page TV (10 pieds) | ➖ | ⏳ | ⏳ | Classe `kstv-tv` posée sur `<html>`, styles à écrire |
 | Écran allumé pendant la lecture | 🟡 | 🟡 | ✅ | Wake Lock dans la WebView, à vérifier |
 | Image dans l'image (PiP) | ⏳ | ➖ | ➖ | |
-| APK signé (release) + Play Store | ⏳ | ⏳ | ➖ | Keystore dans les secrets GitHub |
+| APK signé (release) + Play Store | ⏳ | ⏳ | ➖ | Keystore dans les secrets GitHub ; repasser `webContentsDebuggingEnabled` à false |
 | LG Content Store | ➖ | ➖ | ⏳ | Soumission LG Seller Lounge |
 
 ## Prochaines étapes
