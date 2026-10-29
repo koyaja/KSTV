@@ -1,3 +1,19 @@
+# KSTV
+
+Lecteur IPTV pour **Android (téléphone + TV)** et **LG webOS**, basé sur
+[IPTVnator](https://github.com/4gray/iptvnator) (licence MIT, notice conservée
+dans `LICENSE.md`). KSTV n'est ni affilié à IPTVnator ni approuvé par ce projet.
+
+- Applis mobiles / TV : voir [`mobile/README.md`](mobile/README.md)
+- Parité des fonctions : [`docs/kstv/feuille-de-route-mobile.md`](docs/kstv/feuille-de-route-mobile.md)
+- Builds : onglet *Actions* → workflow **KSTV mobile** → *Artifacts*
+
+KSTV ne fournit aucun contenu : l'utilisateur charge ses propres playlists et abonnements légaux.
+
+---
+
+_Documentation d'origine (IPTVnator) ci-dessous._
+
 # IPTVnator - IPTV Player Application
 
 <p align="center">

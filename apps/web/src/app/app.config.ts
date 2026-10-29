@@ -44,6 +44,7 @@ import { provideParentalLockPrompt } from './services/parental-lock-prompt.servi
 import { providePortalPlaybackPositions } from './services/portal-playback-positions.service';
 import { PwaService } from './services/pwa.service';
 import { shouldEnableServiceWorker } from './services/runtime-config';
+import { provideEmbeddedBackend } from './mobile/embedded-backend.interceptor';
 import { LazyStalkerPlaylistConnectionEditor } from './services/lazy-stalker-playlist-connection-editor';
 import { provideWorkspaceShellActions } from './services/workspace-shell-actions.service';
 
@@ -122,6 +123,7 @@ export const appConfig: ApplicationConfig = {
         // tooltips render while the player is fullscreen.
         { provide: OverlayContainer, useClass: FullscreenOverlayContainer },
         provideHttpClient(withXhr(), withInterceptorsFromDi()),
+        ...provideEmbeddedBackend(),
         provideStore({
             router: routerReducer,
             playlistState: playlistReducer,

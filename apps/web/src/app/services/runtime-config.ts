@@ -1,4 +1,5 @@
 import { AppConfig } from '../../environments/environment';
+import { detectNativeShell } from '../mobile/native-shell';
 
 export interface IptvnatorRuntimeConfig {
     readonly BACKEND_URL?: string;
@@ -22,6 +23,8 @@ export function getRuntimeBackendUrl(): string {
 export interface ServiceWorkerRuntimeContext {
     readonly electronBridge?: unknown;
     readonly protocol?: string;
+    /** KSTV native shell (Capacitor / webOS): assets ship inside the app. */
+    readonly nativeShell?: unknown;
 }
 
 function getDefaultServiceWorkerRuntimeContext(): ServiceWorkerRuntimeContext {
@@ -33,6 +36,7 @@ function getDefaultServiceWorkerRuntimeContext(): ServiceWorkerRuntimeContext {
         electronBridge: browserWindow?.electron,
         protocol:
             browserWindow?.location?.protocol ?? globalThis.location?.protocol,
+        nativeShell: detectNativeShell() ?? undefined,
     };
 }
 
@@ -46,6 +50,7 @@ export function shouldEnableServiceWorker(
         !!navigatorRef &&
         'serviceWorker' in navigatorRef &&
         !runtimeContext.electronBridge &&
+        !runtimeContext.nativeShell &&
         runtimeContext.protocol !== 'file:'
     );
 }

@@ -1,0 +1,20 @@
+{
+    "name": "kstv-mobile",
+    "private": true,
+    "version": "0.1.0",
+    "description": "KSTV native shells: Android (phone + TV) via Capacitor, LG webOS packaging.",
+    "scripts": {
+        "sync": "cap sync android",
+        "open": "cap open android",
+        "webos:package": "node webos/package-webos.mjs"
+    },
+    "dependencies": {
+        "@capacitor/android": "8.5.3",
+        "@capacitor/app": "8.1.2",
+        "@capacitor/core": "8.5.3"
+    },
+    "devDependencies": {
+        "@capacitor/cli": "8.5.3",
+        "@webos-tools/cli": "3.2.6"
+    }
+}

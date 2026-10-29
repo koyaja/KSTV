@@ -1,0 +1,16 @@
+{
+    "id": "com.koyaja.kstv",
+    "version": "0.1.0",
+    "vendor": "KSTV",
+    "type": "web",
+    "main": "index.html",
+    "title": "KSTV",
+    "icon": "icon.png",
+    "largeIcon": "largeIcon.png",
+    "splashBackground": "splash.png",
+    "bgColor": "#0e1740",
+    "resolution": "1920x1080",
+    "disableBackHistoryAPI": true,
+    "uiRevision": 2,
+    "requiredACG": []
+}

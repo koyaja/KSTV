@@ -7,6 +7,11 @@ import { appConfig, getInitialLanguage } from './app/app.config';
 import { probeServerInstance } from './app/server-storage/server-instance-probe';
 import { resolveServerStorageStart } from './app/server-storage/server-storage-start';
 import { getRuntimeBackendUrl } from './app/services/runtime-config';
+import { installMobileRuntime } from './app/mobile/mobile-runtime';
+
+// KSTV native shells (Android, Android TV, LG webOS) answer the backend
+// routes in process; this must run before anything reads BACKEND_URL.
+installMobileRuntime();
 
 // A reloaded packaged renderer arrives on index.html with the route it was
 // on carried in the query string (the Electron main process recovers the

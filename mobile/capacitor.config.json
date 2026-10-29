@@ -1,0 +1,19 @@
+{
+    "appId": "com.koyaja.kstv",
+    "appName": "KSTV",
+    "webDir": "../dist/apps/web",
+    "android": {
+        "allowMixedContent": true,
+        "captureInput": true,
+        "webContentsDebuggingEnabled": false
+    },
+    "server": {
+        "androidScheme": "https",
+        "cleartext": true
+    },
+    "plugins": {
+        "CapacitorHttp": {
+            "enabled": false
+        }
+    }
+}

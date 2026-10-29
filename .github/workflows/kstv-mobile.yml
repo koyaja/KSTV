@@ -1,0 +1,147 @@
+name: KSTV mobile
+
+# Builds the KSTV apps on every push to main:
+#   - kstv-android-debug.apk  -> phones, tablets, Android TV / Google TV boxes
+#   - com.koyaja.kstv_*.ipk   -> LG webOS TVs (Developer Mode)
+# Download them from the run's "Artifacts" section.
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+    workflow_dispatch:
+
+concurrency:
+    group: kstv-mobile-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+env:
+    ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    PUPPETEER_SKIP_DOWNLOAD: '1'
+    NX_DAEMON: 'false'
+    NX_NO_CLOUD: 'true'
+
+jobs:
+    web:
+        name: Web build + mobile layer tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: pnpm/action-setup@v6.1.0
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: .nvmrc
+                  cache: pnpm
+
+            # Native Electron rebuilds are not needed for the mobile shells.
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile --ignore-scripts
+
+            - name: Test the mobile layer
+              run: node ./node_modules/jest/bin/jest.js --config apps/web/jest.config.ts apps/web/src/app/mobile apps/web/src/app/services/runtime-config
+              env:
+                  NODE_OPTIONS: --experimental-vm-modules
+
+            - name: Typecheck web
+              run: pnpm run typecheck:web
+
+            - name: Build web (production)
+              run: pnpm nx build web --configuration=production
+              env:
+                  NODE_OPTIONS: --max-old-space-size=6144
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: kstv-web
+                  path: dist/apps/web
+                  retention-days: 3
+
+    android:
+        name: Android APK (phone + TV)
+        needs: web
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        defaults:
+            run:
+                working-directory: mobile
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: actions/download-artifact@v8
+              with:
+                  name: kstv-web
+                  path: dist/apps/web
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+                  cache-dependency-path: mobile/package-lock.json
+
+            # Capacitor 8 builds with JDK 21; the runner image ships the Android SDK.
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: '21'
+                  cache: gradle
+
+            - name: Install Capacitor
+              run: npm ci
+
+            - name: Sync web assets into the Android project
+              run: npx cap sync android
+
+            - name: Assemble debug APK
+              working-directory: mobile/android
+              run: ./gradlew --no-daemon assembleDebug
+
+            - name: Rename APK
+              run: |
+                  mkdir -p out
+                  cp android/app/build/outputs/apk/debug/app-debug.apk out/kstv-android-debug.apk
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: kstv-android-apk
+                  path: mobile/out/kstv-android-debug.apk
+                  retention-days: 30
+
+    webos:
+        name: LG webOS package
+        needs: web
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        defaults:
+            run:
+                working-directory: mobile
+        steps:
+            - uses: actions/checkout@v7
+
+            - uses: actions/download-artifact@v8
+              with:
+                  name: kstv-web
+                  path: dist/apps/web
+
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+                  cache-dependency-path: mobile/package-lock.json
+
+            - name: Install tools
+              run: npm ci
+
+            - name: Package .ipk
+              run: npm run webos:package
+
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: kstv-webos-ipk
+                  path: mobile/webos/dist/*.ipk
+                  retention-days: 30

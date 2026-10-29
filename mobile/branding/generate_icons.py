@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+"""Generates the KSTV icons for Android (phone + TV banner) and LG webOS.
+
+Original KSTV mark: a rounded TV screen with a play triangle, on a deep
+blue-to-violet gradient, plus the "KSTV" wordmark for the TV banner.
+
+Usage: python3 mobile/branding/generate_icons.py   (from the repo root)
+Requires Pillow.
+"""
+from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
+
+ROOT = Path(__file__).resolve().parents[1]
+RES = ROOT / "android" / "app" / "src" / "main" / "res"
+WEBOS = ROOT / "webos"
+
+TOP = (14, 23, 64)       # deep navy
+BOTTOM = (91, 33, 182)   # violet
+ACCENT = (250, 204, 21)  # amber play button
+WHITE = (255, 255, 255)
+
+FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+]
+
+
+def font(size: int) -> ImageFont.ImageFont:
+    for candidate in FONT_CANDIDATES:
+        if Path(candidate).exists():
+            return ImageFont.truetype(candidate, size)
+    return ImageFont.load_default()
+
+
+def gradient(width: int, height: int) -> Image.Image:
+    image = Image.new("RGB", (width, height))
+    draw = ImageDraw.Draw(image)
+    for y in range(height):
+        t = y / max(1, height - 1)
+        color = tuple(round(a + (b - a) * t) for a, b in zip(TOP, BOTTOM))
+        draw.line([(0, y), (width, y)], fill=color)
+    return image
+
+
+def draw_mark(draw: ImageDraw.ImageDraw, box: tuple[float, float, float, float]) -> None:
+    """TV screen outline + stand + play triangle inside `box`."""
+    x0, y0, x1, y1 = box
+    w, h = x1 - x0, y1 - y0
+    stroke = max(2, round(w * 0.06))
+    screen = (x0, y0, x1, y0 + h * 0.78)
+    draw.rounded_rectangle(screen, radius=w * 0.14, outline=WHITE, width=stroke)
+    # Stand
+    cx = (x0 + x1) / 2
+    draw.rounded_rectangle(
+        (cx - w * 0.22, y1 - stroke * 1.1, cx + w * 0.22, y1),
+        radius=stroke / 2,
+        fill=WHITE,
+    )
+    # Play triangle
+    sx0, sy0, sx1, sy1 = screen
+    scx, scy = (sx0 + sx1) / 2, (sy0 + sy1) / 2
+    r = (sy1 - sy0) * 0.26
+    draw.polygon(
+        [(scx - r * 0.75, scy - r), (scx - r * 0.75, scy + r), (scx + r * 1.05, scy)],
+        fill=ACCENT,
+    )
+
+
+def rounded_mask(size: int, radius_ratio: float) -> Image.Image:
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, size - 1, size - 1), radius=size * radius_ratio, fill=255
+    )
+    return mask
+
+
+def square_icon(size: int, round_corners: bool = True) -> Image.Image:
+    scale = 4  # supersample for smooth edges
+    big = size * scale
+    image = gradient(big, big).convert("RGBA")
+    pad = big * 0.2
+    draw_mark(ImageDraw.Draw(image), (pad, pad * 1.05, big - pad, big - pad * 0.95))
+    if round_corners:
+        image.putalpha(rounded_mask(big, 0.22))
+    return image.resize((size, size), Image.LANCZOS)
+
+
+def round_icon(size: int) -> Image.Image:
+    scale = 4
+    big = size * scale
+    image = square_icon(size * scale, round_corners=False)
+    mask = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, big - 1, big - 1), fill=255)
+    image.putalpha(mask)
+    return image.resize((size, size), Image.LANCZOS)
+
+
+def adaptive_foreground(size: int) -> Image.Image:
+    """108dp layer: the mark sits in the central 66dp safe zone."""
+    scale = 4
+    big = size * scale
+    image = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    inset = big * (21 / 108) + big * 0.06
+    draw_mark(ImageDraw.Draw(image), (inset, inset, big - inset, big - inset))
+    return image.resize((size, size), Image.LANCZOS)
+
+
+def tv_banner(width: int = 320, height: int = 180, transparent: bool = False) -> Image.Image:
+    scale = 3
+    W, H = width * scale, height * scale
+    image = (
+        Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        if transparent
+        else gradient(W, H).convert("RGBA")
+    )
+    draw = ImageDraw.Draw(image)
+    mark = H * 0.5
+    mark_w = mark * 1.15
+    gap = mark * 0.22
+    text_font = font(round(H * 0.28))
+    text_w = draw.textlength("KSTV", font=text_font)
+    left = (W - (mark_w + gap + text_w)) / 2
+    draw_mark(draw, (left, (H - mark) / 2, left + mark_w, (H + mark) / 2))
+    draw.text((left + mark_w + gap, H / 2), "KSTV", font=text_font, fill=WHITE, anchor="lm")
+    return image.resize((width, height), Image.LANCZOS)
+
+
+def splash(width: int, height: int) -> Image.Image:
+    """Gradient with the mark + wordmark centred, sized for the screen."""
+    image = gradient(width, height).convert("RGBA")
+    short = min(width, height)
+    logo = tv_banner(round(short * 0.8), round(short * 0.45), transparent=True)
+    image.alpha_composite(logo, ((width - logo.width) // 2, (height - logo.height) // 2))
+    return image.convert("RGB")
+
+
+ADAPTIVE_BACKGROUND = f"""<?xml version="1.0" encoding="utf-8"?>
+<!-- KSTV adaptive icon background (generated by mobile/branding/generate_icons.py) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#{TOP[0]:02X}{TOP[1]:02X}{TOP[2]:02X}"
+        android:endColor="#{BOTTOM[0]:02X}{BOTTOM[1]:02X}{BOTTOM[2]:02X}" />
+</shape>
+"""
+
+ADAPTIVE_ICON = """<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+</adaptive-icon>
+"""
+
+
+DENSITIES = {"mdpi": 1.0, "hdpi": 1.5, "xhdpi": 2.0, "xxhdpi": 3.0, "xxxhdpi": 4.0}
+
+
+def main() -> None:
+    for density, factor in DENSITIES.items():
+        folder = RES / f"mipmap-{density}"
+        folder.mkdir(parents=True, exist_ok=True)
+        launcher = round(48 * factor)
+        square_icon(launcher).save(folder / "ic_launcher.png")
+        round_icon(launcher).save(folder / "ic_launcher_round.png")
+        adaptive_foreground(round(108 * factor)).save(folder / "ic_launcher_foreground.png")
+
+    banner_dir = RES / "drawable-xhdpi"
+    banner_dir.mkdir(parents=True, exist_ok=True)
+    tv_banner().save(banner_dir / "banner.png")
+
+    # Adaptive icon (Android 8+): gradient background behind the mark.
+    (RES / "drawable" / "ic_launcher_background.xml").write_text(ADAPTIVE_BACKGROUND)
+    anydpi = RES / "mipmap-anydpi-v26"
+    anydpi.mkdir(parents=True, exist_ok=True)
+    for name in ("ic_launcher.xml", "ic_launcher_round.xml"):
+        (anydpi / name).write_text(ADAPTIVE_ICON)
+
+    # Launch screens: replace every template splash at its own size.
+    for existing in RES.glob("drawable*/splash.png"):
+        with Image.open(existing) as current:
+            size = current.size
+        splash(*size).save(existing)
+
+    WEBOS.mkdir(parents=True, exist_ok=True)
+    square_icon(80).save(WEBOS / "icon.png")
+    square_icon(130).save(WEBOS / "largeIcon.png")
+    tv_banner(1920, 1080).convert("RGB").save(WEBOS / "splash.png")
+    print("KSTV icons generated.")
+
+
+if __name__ == "__main__":
+    main()
