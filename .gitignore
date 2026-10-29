@@ -30,6 +30,8 @@ server.js
 # dependencies 
 node_modules
 package-lock.json
+# KSTV: the Capacitor shell is an npm project; CI installs it with npm ci.
+!mobile/package-lock.json
 
 # IDEs and editors 
 /.idea 
